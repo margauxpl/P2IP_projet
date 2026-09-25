@@ -1,0 +1,57 @@
+{% extends 'core/auth_base.html' %}
+
+{% comment %}
+  Inscription — étape 1/4 : l'adresse e-mail.
+{% endcomment %}
+
+{% block title %}La Fabrique — Inscription (1/4){% endblock %}
+
+{% block auth_content %}
+<div class="auth-top">
+  <a href="{% url 'home' %}" class="auth-back" aria-label="Retour">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+  </a>
+  <div class="auth-progress" role="progressbar" aria-valuenow="1" aria-valuemin="1" aria-valuemax="4">
+    <span class="is-done"></span><span></span><span></span><span></span>
+  </div>
+  <span class="auth-count">01/04</span>
+</div>
+
+<form class="auth-body" method="POST" action="{% url 'inscription' %}" novalidate>
+  {% csrf_token %}
+
+  <div class="auth-eyebrow">Étape 1 · ton compte</div>
+  <h1 class="auth-title">On t'écrit où&nbsp;?</h1>
+  <p class="auth-lead">Juste pour tes patrons et tes rappels de projet. Zéro pub.</p>
+
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <input type="email" name="email" id="email" class="auth-field"
+         placeholder="camille.b@mail.fr" value="{{ email|default:'' }}"
+         autocomplete="email" autocapitalize="off" spellcheck="false" required autofocus>
+
+  <div class="auth-checks">
+    <div class="auth-check" id="chk-valid"><i>✓</i><span>Adresse valide</span></div>
+    <div class="auth-check"><i>✓</i><span>Pas encore utilisée sur La Fabrique</span></div>
+  </div>
+
+  <div class="auth-actions">
+    <button type="submit" class="auth-btn">Continuer</button>
+    <a href="{% url 'connexion' %}" class="auth-btn auth-btn--ghost">J'ai déjà un compte</a>
+  </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Coche « Adresse valide » en direct : simple retour visuel, la vraie
+  // validation reste côté serveur.
+  (() => {
+    const input = document.getElementById('email');
+    const chk = document.getElementById('chk-valid');
+    const sync = () => chk.classList.toggle('is-ok', /^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(input.value.trim()));
+    input.addEventListener('input', sync);
+    sync();
+  })();
+</script>
+{% endblock %}

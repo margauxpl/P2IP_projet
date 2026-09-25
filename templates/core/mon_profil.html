@@ -1,0 +1,622 @@
+{% extends 'core/communaute/_base.html' %}
+{% load static communaute_extras %}
+
+{% comment %}
+  Mon profil — identité, carte de jeu et personnalisation. Réutilise le
+  langage visuel de la communauté (`.cm-card`, `.cm-niveau`, `.cm-tuiles`)
+  pour que cette page se lise comme une extension de la carte d'atelier,
+  pas comme un formulaire de compte à part.
+{% endcomment %}
+
+{% block communaute_css %}
+<style>
+  .mp-hero { padding-bottom: 4px; }
+
+  /* ── Photo + identité ── */
+  .mp-photo-ligne { display: flex; align-items: center; gap: 16px; }
+  .mp-photo-cadre {
+    position: relative;
+    width: 78px; height: 78px;
+    border-radius: 26px;
+    padding: 3px;
+    flex: none;
+    background: linear-gradient(150deg, #FFF3C4, #E0A20C);
+  }
+  .mp-photo-cadre.t-vert   { background: linear-gradient(150deg, #DFF5E8, #8FD9AF); }
+  .mp-photo-cadre.t-violet { background: linear-gradient(150deg, #E3DBFF, #9C87F0); }
+  .mp-photo-cadre.t-corail { background: linear-gradient(150deg, #FFE7DE, #F3A183); }
+  .mp-photo-img {
+    width: 100%; height: 100%;
+    border-radius: 22px;
+    object-fit: cover;
+    display: block;
+    background: var(--ink-2);
+  }
+  .mp-photo-badge {
+    position: absolute; bottom: -6px; right: -6px;
+    width: 26px; height: 26px;
+    border-radius: 9px;
+    background: var(--ink);
+    border: 3px solid #1B2620;
+    box-sizing: content-box;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--yellow);
+  }
+  .mp-photo-badge svg { width: 12px; height: 12px; }
+  .mp-nom { font: 800 21px var(--display); color: #fff; letter-spacing: -.02em; }
+  .mp-role {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    font: 400 12px var(--text); color: var(--dim-2); margin-top: 5px;
+  }
+  .mp-role-pastille {
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(255,201,60,.16);
+    color: var(--yellow);
+    border-radius: 8px;
+    padding: 3px 8px;
+    font: 800 10px var(--display);
+  }
+
+  /* ── Rail de stats rapides, sous la carte de niveau ── */
+  .mp-stats-rail { gap: 10px; padding: 2px 0 0; margin-top: 14px; }
+  .mp-stat {
+    flex: none; width: 108px;
+    border-radius: 20px;
+    padding: 13px 14px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.1);
+    box-sizing: border-box;
+  }
+  .mp-stat-valeur { font: 800 19px var(--display); color: #fff; line-height: 1; }
+  .mp-stat-label { font: 500 8.5px var(--mono); letter-spacing: .08em; color: var(--dim-2); margin-top: 6px; }
+
+  /* ── Sections de formulaire ── */
+  .mp-section { padding: 24px 20px 0; }
+  .mp-section-titre {
+    display: flex; align-items: center; gap: 9px;
+    font: 800 16px var(--display);
+    margin-bottom: 14px;
+  }
+  .mp-section-marque {
+    width: 30px; height: 30px;
+    border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    flex: none;
+  }
+  .mp-section-sous { font: 400 12px/1.5 var(--text); color: var(--muted); margin: -8px 0 14px; }
+
+  .mp-champ { display: flex; flex-direction: column; gap: 7px; margin-bottom: 16px; }
+  .mp-champ:last-child { margin-bottom: 0; }
+  .mp-label {
+    font: 700 10.5px var(--mono);
+    letter-spacing: .06em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .mp-input, .mp-textarea {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--sand);
+    border: 1.5px solid transparent;
+    border-radius: 18px;
+    padding: 13px 16px;
+    font: 400 14px var(--text);
+    color: var(--ink);
+    outline: none;
+    transition: border-color .14s ease;
+  }
+  .mp-input:focus, .mp-textarea:focus { border-color: var(--ink); }
+  .mp-input.est-en-erreur { border-color: var(--orange-d); }
+  .mp-textarea { resize: none; min-height: 84px; line-height: 1.5; }
+  .mp-erreur { font: 700 11.5px var(--text); color: var(--orange-d); padding-left: 4px; }
+  .mp-deux { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ── Grille d'avatars ── */
+  .mp-avatar-grille { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .mp-avatar-opt { position: relative; cursor: pointer; }
+  .mp-avatar-opt input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .mp-avatar-opt-img {
+    width: 100%; aspect-ratio: 1;
+    border-radius: 18px;
+    overflow: hidden;
+    border: 2.5px solid transparent;
+    box-sizing: border-box;
+    transition: transform .14s ease, border-color .14s ease, box-shadow .14s ease;
+    background: var(--sand);
+  }
+  .mp-avatar-opt-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .mp-avatar-opt input:checked + .mp-avatar-opt-img {
+    border-color: var(--ink);
+    box-shadow: 0 0 0 3px var(--yellow-l);
+    transform: scale(1.06);
+  }
+  .mp-avatar-opt:active .mp-avatar-opt-img { transform: scale(.95); }
+  .mp-avatar-coche {
+    display: none;
+    position: absolute; bottom: -3px; right: -3px;
+    width: 20px; height: 20px;
+    background: var(--green);
+    border-radius: 50%;
+    border: 2px solid var(--paper);
+    align-items: center; justify-content: center;
+    color: #fff;
+  }
+  .mp-avatar-coche svg { width: 10px; height: 10px; }
+  .mp-avatar-opt input:checked ~ .mp-avatar-coche { display: flex; }
+
+  /* ── Teintes de jeton ── */
+  .mp-teinte-grille { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .mp-teinte-opt { position: relative; cursor: pointer; text-align: center; }
+  .mp-teinte-opt input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .mp-teinte-jeton {
+    width: 100%; aspect-ratio: 1;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font: 800 15px var(--display);
+    border: 3px solid transparent;
+    box-sizing: border-box;
+    transition: transform .14s ease, border-color .14s ease;
+  }
+  .mp-teinte-opt input:checked + .mp-teinte-jeton {
+    border-color: var(--ink);
+    transform: scale(1.08);
+  }
+  .mp-teinte-nom { display: block; font: 700 10.5px var(--text); color: var(--muted); margin-top: 7px; }
+
+  /* ── Cartes de niveau de couture (réutilise le style des maquettes) ── */
+  .mp-niveau-liste { display: flex; flex-direction: column; gap: 10px; }
+  .mp-niveau-carte { cursor: pointer; display: block; }
+  .mp-niveau-carte input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .mp-niveau-inner {
+    display: flex; align-items: center; gap: 13px;
+    padding: 14px 16px;
+    background: var(--sand);
+    border-radius: 18px;
+    border: 2px solid transparent;
+    transition: border-color .14s ease, background .14s ease;
+  }
+  .mp-niveau-carte input:checked + .mp-niveau-inner {
+    border-color: var(--green);
+    background: var(--green-l);
+  }
+  .mp-niveau-emoji {
+    width: 38px; height: 38px; flex: none;
+    border-radius: 13px;
+    background: var(--paper);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .mp-niveau-nom { font: 800 14px var(--display); }
+  .mp-niveau-desc { font: 400 11.5px var(--text); color: var(--muted); margin-top: 2px; }
+
+  /* ── Envies (tags) ── */
+  .mp-tags { display: flex; flex-wrap: wrap; gap: 9px; }
+  .mp-tag { cursor: pointer; }
+  .mp-tag input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .mp-tag-corps {
+    display: inline-flex; align-items: center;
+    padding: 10px 16px;
+    background: var(--sand);
+    color: var(--muted);
+    border-radius: 999px;
+    font: 700 12.5px var(--text);
+    border: 1.5px solid transparent;
+    transition: all .14s ease;
+  }
+  .mp-tag input:checked + .mp-tag-corps {
+    background: var(--orange-l);
+    color: #B03A12;
+    border-color: #F0C4B0;
+  }
+
+  /* ── Lignes d'info compte ── */
+  .mp-info-ligne {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px;
+    padding: 13px 16px;
+    background: var(--sand);
+    border-radius: 16px;
+  }
+  .mp-info-ligne + .mp-info-ligne { margin-top: 8px; }
+  .mp-info-label { display: flex; align-items: center; gap: 9px; font: 700 12.5px var(--text); color: var(--muted); }
+  .mp-info-label svg, .mp-info-label img { flex: none; }
+  .mp-info-valeur { font: 800 13px var(--display); }
+
+  /* ── Liens RGPD ── */
+  .mp-rgpd { display: flex; flex-direction: column; gap: 8px; }
+  .mp-rgpd-lien {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    background: var(--sand);
+    border-radius: 16px;
+    font: 700 13px var(--text);
+    color: var(--ink);
+  }
+  .mp-rgpd-lien.est-danger { background: var(--orange-l); color: #B03A12; }
+  .mp-rgpd-lien svg:last-child { color: var(--faint); flex: none; }
+  .mp-rgpd-lien.est-danger svg:last-child { color: #B03A12; }
+
+  /* ── Toast de sauvegarde ── */
+  .mp-toast {
+    position: fixed; left: 50%; bottom: 110px;
+    transform: translateX(-50%) translateY(14px);
+    background: var(--ink);
+    color: #fff;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font: 800 13px var(--display);
+    box-shadow: 0 14px 30px rgba(20,18,15,.3);
+    opacity: 0;
+    transition: opacity .3s ease, transform .3s ease;
+    z-index: 60;
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+  }
+  .mp-toast.est-visible { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if saved %}
+<div class="cm mp-toast" id="mpToast">
+  {% include 'core/communaute/_icones.html' with icone='coche' taille=15 %}
+  <span>Profil mis à jour</span>
+</div>
+{% endif %}
+
+<div class="cm has-cta">
+
+  {# ══ Carte d'identité / niveau ══ #}
+  <section class="cm-card mp-hero">
+    <span class="cm-card-glow" aria-hidden="true"></span>
+
+    <div class="cm-card-top">
+      <span class="cm-card-top-label">MON PROFIL</span>
+      <a href="{% url 'dashboard' %}" class="cm-card-profil">
+        {% include 'core/communaute/_icones.html' with icone='fleche-gauche' taille=13 %}
+        <span>Accueil</span>
+      </a>
+    </div>
+
+    <div class="mp-photo-ligne">
+      <span class="mp-photo-cadre {{ user|teinte }}">
+        <img class="mp-photo-img" id="mpAvatarBig" src="{% static user.avatar_url %}" alt="">
+        <span class="mp-photo-badge">
+          {% include 'core/communaute/_icones.html' with icone='reglages' taille=12 %}
+        </span>
+      </span>
+      <div style="flex:1;min-width:0">
+        <div class="mp-nom">{{ user.first_name|default:user.username }}{% if user.last_name %} {{ user.last_name }}{% endif %}</div>
+        <div class="mp-role">
+          <span>{{ niveau.nom }}</span>
+          {% if profil_jeu.arrondissement %}<span>· {{ profil_jeu.arrondissement }}</span>{% endif %}
+          {% if rang_ligue %}
+            <span class="mp-role-pastille">
+              {% include 'core/communaute/_icones.html' with icone='trophee' taille=11 %}
+              #{{ rang_ligue }} EN LIGUE
+            </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {# ── Niveau : anneau + barre de CP, porte vers l'écran de progression ── #}
+    <a href="{% url 'communaute_progression' %}" class="cm-niveau cm-tap" style="margin-top:18px">
+      <span class="cm-niveau-glow" aria-hidden="true"></span>
+      <div class="cm-niveau-corps">
+        <div class="cm-anneau">
+          <div class="cm-anneau-piste" style="--pct:{{ niveau.pourcentage }}%"></div>
+          <div class="cm-anneau-coeur"><span>{{ niveau.numero }}</span></div>
+          <span class="cm-anneau-pastille" aria-hidden="true"></span>
+        </div>
+        <div class="cm-niveau-infos">
+          <div class="cm-niveau-ligne">
+            <span class="cm-niveau-kicker">NIVEAU {{ niveau.numero }}</span>
+            <span class="cm-niveau-filet"></span>
+            <span class="cm-niveau-chevron">
+              {% include 'core/communaute/_icones.html' with icone='chevron' taille=11 %}
+            </span>
+          </div>
+          <div class="cm-niveau-titre">{{ niveau.nom }}</div>
+          <div class="cm-xp-piste">
+            <div class="cm-xp-jauge" style="width:{{ niveau.pourcentage }}%"></div>
+          </div>
+          <div class="cm-xp-legende">
+            {% if niveau.niveau_suivant %}
+              {{ niveau.points_dans_niveau }} / {{ niveau.points_palier }} · NIVEAU {{ niveau.niveau_suivant }} DANS {{ niveau.points_restants }} CP
+            {% else %}
+              {{ niveau.points }} CP · NIVEAU MAXIMUM ATTEINT
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </a>
+
+    {# ── Rail de raccourcis vers le reste de la carte de jeu ── #}
+    <div class="cm-rail mp-stats-rail">
+      <a href="{% url 'communaute_serie' %}" class="mp-stat cm-tap">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="display:flex;flex:none">{% include 'core/communaute/_icones.html' with icone='flamme' taille=18 uid='profil' %}</span>
+          <span class="mp-stat-valeur">{{ profil_jeu.serie_actuelle }}</span>
+        </div>
+        <div class="mp-stat-label">JOURS DE SÉRIE</div>
+      </a>
+      <a href="{% url 'communaute_boutique' %}" class="mp-stat cm-tap">
+        <div class="mp-stat-valeur">{{ user.soldePieces|espace_millier }}</div>
+        <div class="mp-stat-label">PIÈCES</div>
+      </a>
+      <a href="{% url 'communaute_ecussons' %}" class="mp-stat cm-tap">
+        <div class="mp-stat-valeur">{{ nb_ecussons }}<small style="font-size:12px;color:var(--dim-2)"> / {{ total_ecussons }}</small></div>
+        <div class="mp-stat-label">ÉCUSSONS</div>
+      </a>
+      <a href="{% url 'communaute_classement' %}" class="mp-stat cm-tap">
+        <div class="mp-stat-valeur">{% if rang_ligue %}#{{ rang_ligue }}{% else %}—{% endif %}</div>
+        <div class="mp-stat-label">CLASSEMENT</div>
+      </a>
+    </div>
+  </section>
+
+  <form id="mpForm" method="POST">
+    {% csrf_token %}
+
+    {# ══ Avatar ══ #}
+    <section class="mp-section">
+      <div class="mp-section-titre">
+        <span class="mp-section-marque" style="background:linear-gradient(150deg,#FFC93C,#E0A20C)">
+          {% include 'core/communaute/_icones.html' with icone='etoile' taille=15 %}
+        </span>
+        Mon avatar
+      </div>
+      <div class="mp-avatar-grille">
+        {% for av in avatars %}
+          <label class="mp-avatar-opt">
+            <input type="radio" name="avatar" value="{{ av }}"
+                   data-url="{% static 'core/images/avatars/'|add:av %}"
+                   {% if user.avatar == av %}checked{% endif %}
+                   onchange="window.mpUpdateAvatar(this)">
+            <span class="mp-avatar-opt-img">
+              <img src="{% static 'core/images/avatars/'|add:av %}" alt="" loading="lazy">
+            </span>
+            <span class="mp-avatar-coche">
+              {% include 'core/communaute/_icones.html' with icone='coche' taille=10 %}
+            </span>
+          </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    {# ══ Teinte du jeton ══ #}
+    <section class="mp-section">
+      <div class="mp-section-titre">
+        <span class="mp-section-marque" style="background:linear-gradient(150deg,#C4B4FF,#7C5CFF)">
+          {% include 'core/communaute/_icones.html' with icone='amis' taille=14 %}
+        </span>
+        Couleur de mon jeton
+      </div>
+      <div class="mp-section-sous">La couleur qui te représente dans les classements, les salons et les défis.</div>
+      <div class="mp-teinte-grille">
+        {% for code, nom in teintes %}
+          <label class="mp-teinte-opt">
+            <input type="radio" name="teinte" value="{{ code }}" {% if profil_jeu.teinte == code %}checked{% endif %}>
+            <span class="mp-teinte-jeton {{ code }}">{{ user|initiales }}</span>
+            <span class="mp-teinte-nom">{{ nom }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    {# ══ Identité ══ #}
+    <section class="mp-section">
+      <div class="mp-section-titre">
+        <span class="mp-section-marque" style="background:linear-gradient(150deg,#7FC9E8,#2E7EA3)">
+          {% include 'core/communaute/_icones.html' with icone='mentor' taille=15 %}
+        </span>
+        Identité
+      </div>
+
+      <div class="mp-champ">
+        <label class="mp-label" for="id_username">Pseudo</label>
+        <input id="id_username" type="text" name="username" class="mp-input {% if errors.username %}est-en-erreur{% endif %}"
+               value="{{ user.username }}" required maxlength="150">
+        {% if errors.username %}<span class="mp-erreur">{{ errors.username }}</span>{% endif %}
+      </div>
+
+      <div class="mp-deux">
+        <div class="mp-champ">
+          <label class="mp-label" for="id_first_name">Prénom</label>
+          <input id="id_first_name" type="text" name="first_name" class="mp-input"
+                 value="{{ user.first_name }}" maxlength="150" placeholder="Ton prénom">
+        </div>
+        <div class="mp-champ">
+          <label class="mp-label" for="id_last_name">Nom</label>
+          <input id="id_last_name" type="text" name="last_name" class="mp-input"
+                 value="{{ user.last_name }}" maxlength="150" placeholder="Ton nom">
+        </div>
+      </div>
+
+      <div class="mp-champ">
+        <label class="mp-label" for="id_email">Adresse e-mail</label>
+        <input id="id_email" type="email" name="email" class="mp-input {% if errors.email %}est-en-erreur{% endif %}"
+               value="{{ user.email }}" placeholder="ton@email.com">
+        {% if errors.email %}<span class="mp-erreur">{{ errors.email }}</span>{% endif %}
+      </div>
+
+      <div class="mp-champ">
+        <label class="mp-label" for="id_bio">Bio</label>
+        <textarea id="id_bio" name="bio" class="mp-textarea"
+                  maxlength="300" placeholder="Dis quelque chose sur toi…">{{ user.bio|default:'' }}</textarea>
+      </div>
+    </section>
+
+    {# ══ Ville et quartier ══ #}
+    <section class="mp-section">
+      <div class="mp-section-titre">
+        <span class="mp-section-marque" style="background:linear-gradient(150deg,#8FD9AF,#12633A)">
+          {% include 'core/communaute/_icones.html' with icone='epingle' taille=14 %}
+        </span>
+        Mon atelier
+      </div>
+      <div class="mp-section-sous">Sert à te proposer des couturiers, des salons et un défi de ville proches de toi.</div>
+      <div class="mp-deux">
+        <div class="mp-champ">
+          <label class="mp-label" for="id_ville">Ville</label>
+          <input id="id_ville" type="text" name="ville" class="mp-input"
+                 value="{{ profil_jeu.ville }}" maxlength="60" placeholder="Lyon">
+        </div>
+        <div class="mp-champ">
+          <label class="mp-label" for="id_quartier">Quartier</label>
+          <input id="id_quartier" type="text" name="quartier" class="mp-input"
+                 value="{{ profil_jeu.quartier }}" maxlength="60" placeholder="Croix-Rousse">
+        </div>
+      </div>
+    </section>
+
+    {# ══ Niveau de couture ══ #}
+    <section class="mp-section">
+      <div class="mp-section-titre">
+        <span class="mp-section-marque" style="background:linear-gradient(150deg,#FF9B4C,#E1552A)">
+          {% include 'core/communaute/_icones.html' with icone='aiguille' taille=14 %}
+        </span>
+        Niveau de couture
+      </div>
+      <div class="mp-niveau-liste">
+        <label class="mp-niveau-carte">
+          <input type="radio" name="niveau_couture" value="debutant"
+                 {% if user.niveau_couture == 'debutant' or not user.niveau_couture %}checked{% endif %}>
+          <div class="mp-niveau-inner">
+            <span class="mp-niveau-emoji"><i class="ic fi-br-seedling"></i></span>
+            <div>
+              <div class="mp-niveau-nom">Débutant</div>
+              <div class="mp-niveau-desc">En plein combat avec mon premier fil</div>
+            </div>
+          </div>
+        </label>
+        <label class="mp-niveau-carte">
+          <input type="radio" name="niveau_couture" value="intermediaire"
+                 {% if user.niveau_couture == 'intermediaire' %}checked{% endif %}>
+          <div class="mp-niveau-inner">
+            <span class="mp-niveau-emoji"><i class="ic fi-br-reel"></i></span>
+            <div>
+              <div class="mp-niveau-nom">Intermédiaire</div>
+              <div class="mp-niveau-desc">Je ne perds plus le fil</div>
+            </div>
+          </div>
+        </label>
+        <label class="mp-niveau-carte">
+          <input type="radio" name="niveau_couture" value="avance"
+                 {% if user.niveau_couture == 'avance' %}checked{% endif %}>
+          <div class="mp-niveau-inner">
+            <span class="mp-niveau-emoji"><i class="ic fi-br-scissors"></i></span>
+            <div>
+              <div class="mp-niveau-nom">Avancé</div>
+              <div class="mp-niveau-desc">Au sommet de la chaîne</div>
+            </div>
+          </div>
+        </label>
+      </div>
+    </section>
+
+    {# ══ Envies de création ══ #}
+    <section class="mp-section">
+      <div class="mp-section-titre">
+        <span class="mp-section-marque" style="background:linear-gradient(150deg,#FFC2DA,#D6538C)">
+          {% include 'core/communaute/_icones.html' with icone='coeur' taille=14 %}
+        </span>
+        Envies de création
+      </div>
+      <div class="mp-tags">
+        {% for tag, label in envies_choices %}
+          <label class="mp-tag">
+            <input type="checkbox" name="envies_creation" value="{{ tag }}" {% if tag in current_envies %}checked{% endif %}>
+            <span class="mp-tag-corps">{{ label }}</span>
+          </label>
+        {% endfor %}
+      </div>
+    </section>
+  </form>
+
+  {# ══ Mon compte ══ #}
+  <section class="mp-section">
+    <div class="mp-section-titre">
+      <span class="mp-section-marque" style="background:var(--ink)">
+        {% include 'core/communaute/_icones.html' with icone='info' taille=14 %}
+      </span>
+      Mon compte
+    </div>
+    <div class="mp-info-ligne">
+      <span class="mp-info-label">
+        <img src="{% static 'core/images/icons/coin.png' %}" alt="" style="width:16px;height:16px">
+        Pièces
+      </span>
+      <span class="mp-info-valeur">{{ user.soldePieces }}</span>
+    </div>
+    <div class="mp-info-ligne">
+      <span class="mp-info-label">
+        {% include 'core/communaute/_icones.html' with icone='calendrier' taille=15 %}
+        Membre depuis
+      </span>
+      <span class="mp-info-valeur">{{ user.date_joined|date:"d/m/Y" }}</span>
+    </div>
+    <div class="mp-info-ligne">
+      <span class="mp-info-label">
+        {% include 'core/communaute/_icones.html' with icone='coche' taille=15 %}
+        Consentement RGPD
+      </span>
+      <span class="mp-info-valeur">
+        {% if user.consentementRGPD %}Accepté{% if user.dateConsentementRGPD %} le {{ user.dateConsentementRGPD|date:"d/m/Y" }}{% endif %}{% else %}Non renseigné{% endif %}
+      </span>
+    </div>
+  </section>
+
+  {# ══ Confidentialité & données ══ #}
+  <section class="mp-section" style="padding-bottom:12px">
+    <div class="mp-section-titre">
+      <span class="mp-section-marque" style="background:var(--stone)">
+        {% include 'core/communaute/_icones.html' with icone='cadenas' taille=14 %}
+      </span>
+      Confidentialité &amp; données
+    </div>
+    <div class="mp-rgpd">
+      <a href="{% url 'politique_confidentialite' %}" class="mp-rgpd-lien">
+        <span>Politique de confidentialité</span>
+        {% include 'core/communaute/_icones.html' with icone='chevron' taille=14 %}
+      </a>
+      <a href="{% url 'exporter_donnees' %}" class="mp-rgpd-lien">
+        <span>Télécharger mes données</span>
+        {% include 'core/communaute/_icones.html' with icone='chevron' taille=14 %}
+      </a>
+      <a href="{% url 'supprimer_compte' %}" class="mp-rgpd-lien est-danger">
+        <span>Supprimer mon compte</span>
+        {% include 'core/communaute/_icones.html' with icone='chevron' taille=14 %}
+      </a>
+    </div>
+  </section>
+
+</div>
+
+{# ══ Barre de sauvegarde fixe ══ #}
+<div class="cm-cta">
+  <button type="submit" form="mpForm" class="cm-bouton b-vert">Enregistrer les modifications</button>
+</div>
+{% endblock %}
+
+{% block communaute_js %}
+<script>
+  window.mpUpdateAvatar = function (radio) {
+    var img = document.getElementById('mpAvatarBig');
+    if (img) img.src = radio.getAttribute('data-url');
+  };
+
+  {% if saved %}
+  (function () {
+    var toast = document.getElementById('mpToast');
+    if (!toast) return;
+    requestAnimationFrame(function () {
+      toast.classList.add('est-visible');
+      setTimeout(function () { toast.classList.remove('est-visible'); }, 2800);
+    });
+  })();
+  {% endif %}
+</script>
+{% endblock %}
